@@ -699,10 +699,6 @@ class TestFP8Matmul(TestCase):
             self.assertEqual(out_dtype, out_fp8.dtype)
         self.assertEqual(out_fp32, out_fp8.to(torch.float))
 
-    @unittest.skipIf(
-        _get_torch_cuda_version() >= (13, 0),
-        "Skip on CUDA 13.0+ due to known issues with FP8"
-    )
     def test_float8_basics(self, device) -> None:
         if device != "cpu" and torch.cuda.is_available() and not PLATFORM_SUPPORTS_FP8:
             raise unittest.SkipTest(f8_msg)
@@ -723,10 +719,6 @@ class TestFP8Matmul(TestCase):
         with self.assertRaises(AssertionError if torch.version.hip or device == "cpu" else RuntimeError):
             self._test_tautological_mm(device, out_dtype=e5m2_type)
 
-    @unittest.skipIf(
-        _get_torch_cuda_version() >= (13, 0),
-        "Skip on CUDA 13.0+ due to known issues with FP8"
-    )
     def test_float8_scale(self, device) -> None:
         if device != "cpu" and torch.cuda.is_available() and not PLATFORM_SUPPORTS_FP8:
             raise unittest.SkipTest(f8_msg)
@@ -1063,9 +1055,6 @@ class TestFP8Matmul(TestCase):
     def test_float8_bias(self, device) -> None:
         if device != "cpu" and torch.cuda.is_available() and not PLATFORM_SUPPORTS_FP8:
             raise unittest.SkipTest(f8_msg)
-        # Skip on CUDA 13.0+ due to known issues with FP8
-        if device == "cuda" and _get_torch_cuda_version() >= (13, 0):
-            raise unittest.SkipTest("Skip on CUDA 13.0+ due to known issues with FP8")
         (k, l, m) = (16, 48, 32)
         x = torch.ones((k, l), device=device).to(e4m3_type)
         y = torch.full((m, l), .25, device=device, dtype=e4m3_type).t()
@@ -1137,10 +1126,6 @@ class TestFP8Matmul(TestCase):
 
     @unittest.skipIf(not PLATFORM_SUPPORTS_FP8, f8_msg)
     @unittest.skipIf(SM100OrLater, "fast_accum is SM90-only")
-    @unittest.skipIf(
-        _get_torch_cuda_version() >= (13, 0),
-        "Skip on CUDA 13.0+ due to known issues with FP8"
-    )
     def test_float8_scale_fast_accum(self, device) -> None:
         size = (16, 16)
         x = torch.full(size, .5, device=device, dtype=e4m3_type)
