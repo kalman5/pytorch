@@ -1,6 +1,5 @@
 # mypy: allow-untyped-defs
 # Copyright (c) Meta Platforms, Inc. and affiliates
-import contextlib
 import warnings
 from logging import getLogger
 from typing import Optional
@@ -238,55 +237,77 @@ class OffsetBasedRNGTracker(_RNGStateTracker):
         if self._device.type == "hpu":
             self._device_handle.unset_rng_ctx("philox")
 
-    @contextlib.contextmanager
     def _distribute_region(
         self, spec: DTensorSpec, generator: torch.Generator | None = None
     ):
+        """
+        Returns a callable wrapper that executes the given operation with proper RNG state handling.
+        This uses run_with_start_end_rng_state higher-order op for tracing/compiler compatibility.
+        """
         from torch.distributed._local_tensor import maybe_enable_local_tracker
 
         if local_tracker_context := maybe_enable_local_tracker(
             self._device.type, self.distribute_region_enabled, spec, generator
         ):
-            with local_tracker_context:
-                yield
-            return
+            # For LocalTensor mode, return a wrapper that uses the context manager
+            def wrapper(op, *args, **kwargs):
+                with local_tracker_context:
+                    return op(*args, **kwargs)
 
-        # regular (non-LocalTensor) mode
+            return wrapper
+
+        # Get the RNG state (same for both enabled and disabled cases)
         if generator is not None:
-            # This is a little hacky, but for any user-passed generator, we store its state under a unique key,
-            # not because we need to keep a copy of it but because its the easiest way to make it work with the
-            # existing set/get APIs. We also ensure we remove it from rng_states after each _distribute_region.
             state = _PhiloxState(generator.get_state())
         else:
             state = _PhiloxState(self._get_device_state())
 
-        if self.distribute_region_enabled:
-            if self._device.type == "hpu":
-                self._device_handle.set_rng_ctx("philox")
-            old_offset = state.offset
-            self._set_pre_op_offset(state, spec)
-            with torch.random.fork_rng(
-                devices=[self._device], device_type=self._device.type
-            ):
-                assert self._device_handle is not None
-                self._device_handle.set_rng_state(state.state)
-                try:
-                    yield  # execute the region code
-                finally:
-                    # update offset to synchronize among ranks
-                    self._set_post_op_offset(state, spec, old_offset)
-            if self._device.type == "hpu":
-                self._device_handle.unset_rng_ctx("philox")
-        else:
-            yield
+        # Capture generator and state for use in wrapper
+        captured_generator = generator
+        captured_state = state
 
-        if generator is not None:
-            # ensure we (a) propagate the state advancement back to the user's RNG so its visible and impacts any future
-            # usage of that RNG (dtensor or non-dtensor), (b) drop it from our own cache so that if the user updates
-            # the seed value in their rng and uses it with DTensor again, we always use the latest value
-            generator.set_state(state.state)
-        else:
-            self._set_device_state(state.state)
+        if not self.distribute_region_enabled:
+            # If distribute region is disabled, execute op directly but still update state
+            def wrapper(op, *args, **kwargs):
+                result = op(*args, **kwargs)
+                # Update generator or device state after execution (same as old implementation)
+                if captured_generator is not None:
+                    captured_generator.set_state(captured_state.state)
+                else:
+                    self._set_device_state(captured_state.state)
+                return result
+
+            return wrapper
+
+        # Import the higher-order op
+        from torch._prims.rng_prims import run_with_start_end_rng_state
+
+        # Compute start and end RNG states
+        old_offset = state.offset
+        self._set_pre_op_offset(state, spec)
+        start_rng_state = state.state
+
+        # Compute the end state by calculating what offset we should have after the op
+        self._set_post_op_offset(state, spec, old_offset)
+        end_rng_state = state.state
+
+        # Create wrapper that uses the pre-computed states
+        def wrapper(op, *args, **kwargs):
+            result = run_with_start_end_rng_state(
+                start_rng_state, end_rng_state, op, *args, **kwargs
+            )
+
+            # Update generator or device state after the operation
+            # The HOP sets the global RNG state to end_rng_state, but we also need to
+            # update the captured generator if one was provided
+            if captured_generator is not None:
+                captured_generator.set_state(end_rng_state)
+            # Note: for device state, the HOP already updated it, so no need to call
+            # self._set_device_state(end_rng_state) again
+
+            return result
+
+        return wrapper
 
     def _set_pre_op_offset(self, state: _PhiloxState, spec: DTensorSpec) -> None:
         """Set the starting RNG offset for current device's local shard before actual
