@@ -681,6 +681,10 @@ class FakeTensor(Tensor):
     # this is an "infra" mode with lower dispatching precedence.
     _mode_key = torch._C._TorchDispatchModeKey.FAKE
 
+    # def __init__(self, *args: object, **kwargs: object) -> None:
+    #     super().__init__(*args, **kwargs)
+    #     self._creation_bt = traceback.extract_stack()
+
     @property
     def fake_mode(self) -> FakeTensorMode:
         """Access the FakeTensorMode.
@@ -697,6 +701,8 @@ class FakeTensor(Tensor):
         assert self._fake_mode_ref is not None, "Neither strong nor weak ref set"
         mode = self._fake_mode_ref()
         if mode is None:
+            # breakpoint()
+            # print("".join(self._debug_trace()))
             raise RuntimeError(
                 "FakeTensorMode has been garbage collected. "
                 "This usually means the FakeTensor outlived its FakeTensorMode, "
@@ -759,6 +765,7 @@ class FakeTensor(Tensor):
         real_tensor: Optional[Tensor] = None,
         pytype: Optional[type[Tensor]] = None,
         dispatch_keys: Optional[torch.DispatchKeySet] = None,
+        strong_fake_mode: bool = False,
     ) -> Self:
         self = Tensor._make_subclass(
             cls,
@@ -812,7 +819,7 @@ class FakeTensor(Tensor):
         # Use STRONG reference when export=True (torch.export needs mode for serialization)
         # Use WEAK reference for normal torch.compile to break reference cycles
         # that prevent garbage collection in Python 3.14+ (PEP 649/667).
-        if fake_mode.fake_tensor_converter.export:
+        if fake_mode.fake_tensor_converter.export or strong_fake_mode:
             self._fake_mode = fake_mode  # Strong reference for export
             self._fake_mode_ref = None
         else:
@@ -832,6 +839,9 @@ class FakeTensor(Tensor):
 
         if FakeTensorConfig.debug:
             self._debug_trace = CapturedTraceback.extract()  # type: ignore[attr-defined]
+
+        # self._creation_bt = traceback.extract_stack()
+
         return self
 
     # In some circumstances, a conventional Tensor constructor
@@ -2091,7 +2101,7 @@ class FakeTensorMode(TorchDispatchMode):
             with in_kernel_invocation_manager(self), maybe_suppress():
                 empty.set_(storage, storage_offset, shape, stride)
 
-        return FakeTensor(self, empty, metadata.device)
+        return FakeTensor(self, empty, metadata.device, strong_fake_mode=True)
 
     def _output_from_cache_entry(
         self,
