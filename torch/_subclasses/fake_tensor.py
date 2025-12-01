@@ -517,7 +517,7 @@ class FakeTensorConverter:
         if maybe_memo is not None:
             return maybe_memo
         out = FakeTensor(
-            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys
+            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys, strong_fake_mode=True
         )
         self.set_tensor_memo(t, out)
         return out
@@ -702,7 +702,7 @@ class FakeTensor(Tensor):
         mode = self._fake_mode_ref()
         if mode is None:
             # breakpoint()
-            # print("".join(self._debug_trace()))
+            # print("".join(self._debug_trace.format()))
             raise RuntimeError(
                 "FakeTensorMode has been garbage collected. "
                 "This usually means the FakeTensor outlived its FakeTensorMode, "
