@@ -2146,7 +2146,7 @@ class OutputGraph(OutputGraphCommon):
             # This is needed for standalone_compile and other cases where the GraphModule
             # outlives the normal compilation flow and needs to access FakeTensors later.
             # We store it in a way that won't interfere with deepcopy operations.
-            object.__setattr__(gm, '_dynamo_fake_mode', self.tracing_context.fake_mode)
+            # object.__setattr__(gm, '_dynamo_fake_mode', self.tracing_context.fake_mode)
             
             # Saved tensors hooks are not used by the graph.
             # GraphModule by default only copies used in the graph submodules.
