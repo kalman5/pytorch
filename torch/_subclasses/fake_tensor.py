@@ -364,6 +364,7 @@ class FakeTensorConverter:
         source: Optional[Source] = None,
         symbolic_context: Optional[SymbolicContext] = None,
         trace: bool = True,
+        strong_fake_mode: bool = True,
     ) -> FakeTensor:
         # see note [Tensor Fakification and Symbol Caching]
         if not symbolic_context and not source and shape_env:
@@ -391,6 +392,7 @@ class FakeTensorConverter:
         # This callback is used by both subclass and inner tensors. Require the
         # caller to explicitly specify the device in case outer and inner tensors
         # have different devices.
+        # breakpoint()
         def mk_fake_tensor(
             make_meta_t: Callable[[], object], device: Union[torch.device, str]
         ) -> FakeTensor:
@@ -411,7 +413,7 @@ class FakeTensorConverter:
                     # TODO: callback might be used in recursive contexts, in
                     # which case using t is wrong!  BUG!
                     constant=constant,
-                    strong_fake_mode=False,
+                    strong_fake_mode=strong_fake_mode,
                 )
 
         out = self.meta_converter(
@@ -518,7 +520,7 @@ class FakeTensorConverter:
         if maybe_memo is not None:
             return maybe_memo
         out = FakeTensor(
-            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys
+            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys,
         )
         self.set_tensor_memo(t, out)
         return out
@@ -3105,6 +3107,7 @@ class FakeTensorMode(TorchDispatchMode):
         source: Optional[Source] = None,
         symbolic_context: Optional[SymbolicContext] = None,
         trace: bool = True,
+        strong_fake_mode: bool = True,
     ) -> FakeTensor:
         shape_env: Optional[ShapeEnv] = self.shape_env
         if static_shapes is None:
@@ -3121,6 +3124,7 @@ class FakeTensorMode(TorchDispatchMode):
             source=source,
             symbolic_context=symbolic_context,
             trace=trace,
+            strong_fake_mode=strong_fake_mode,
         )
 
 

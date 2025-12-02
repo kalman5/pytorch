@@ -3687,6 +3687,7 @@ def wrap_to_fake_tensor_and_record(
                     e,
                     source=source,
                     symbolic_context=symbolic_context,
+                    strong_fake_mode=False,
                 )
             )
         if (
