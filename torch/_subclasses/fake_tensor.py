@@ -823,7 +823,7 @@ class FakeTensor(Tensor):
         # Use WEAK reference for normal torch.compile to break reference cycles
         # that prevent garbage collection in Python 3.14+ (PEP 649/667).
         # breakpoint()
-        if strong_fake_mode:
+        if strong_fake_mode or fake_mode.fake_tensor_converter.export:
             self._fake_mode = fake_mode  # Strong reference for export
             self._fake_mode_ref = None
         else:
