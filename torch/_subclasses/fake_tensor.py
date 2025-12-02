@@ -411,6 +411,7 @@ class FakeTensorConverter:
                     # TODO: callback might be used in recursive contexts, in
                     # which case using t is wrong!  BUG!
                     constant=constant,
+                    strong_fake_mode=False,
                 )
 
         out = self.meta_converter(
@@ -517,7 +518,7 @@ class FakeTensorConverter:
         if maybe_memo is not None:
             return maybe_memo
         out = FakeTensor(
-            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys, strong_fake_mode=True
+            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys
         )
         self.set_tensor_memo(t, out)
         return out
@@ -765,7 +766,7 @@ class FakeTensor(Tensor):
         real_tensor: Optional[Tensor] = None,
         pytype: Optional[type[Tensor]] = None,
         dispatch_keys: Optional[torch.DispatchKeySet] = None,
-        strong_fake_mode: bool = False,
+        strong_fake_mode: bool = True,
     ) -> Self:
         self = Tensor._make_subclass(
             cls,
@@ -819,7 +820,8 @@ class FakeTensor(Tensor):
         # Use STRONG reference when export=True (torch.export needs mode for serialization)
         # Use WEAK reference for normal torch.compile to break reference cycles
         # that prevent garbage collection in Python 3.14+ (PEP 649/667).
-        if fake_mode.fake_tensor_converter.export or strong_fake_mode:
+        # breakpoint()
+        if strong_fake_mode:
             self._fake_mode = fake_mode  # Strong reference for export
             self._fake_mode_ref = None
         else:
@@ -2101,7 +2103,7 @@ class FakeTensorMode(TorchDispatchMode):
             with in_kernel_invocation_manager(self), maybe_suppress():
                 empty.set_(storage, storage_offset, shape, stride)
 
-        return FakeTensor(self, empty, metadata.device, strong_fake_mode=True)
+        return FakeTensor(self, empty, metadata.device)
 
     def _output_from_cache_entry(
         self,
