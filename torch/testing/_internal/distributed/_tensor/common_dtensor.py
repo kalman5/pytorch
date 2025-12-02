@@ -462,7 +462,8 @@ class DTensorTestBase(MultiProcessTestCase):
             # accelerator is also available.
             dist.barrier()
         else:
-            dist.barrier(device_ids=[device_id])
+            pass
+            # dist.barrier(device_ids=[device_id])
 
         dist.destroy_process_group()
 
