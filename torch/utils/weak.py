@@ -72,9 +72,8 @@ class _IterationGuard:
 # NB: Prefer using this when working with weakrefs of Tensors; e.g., do
 # WeakIdRef(tensor) rather than weakref.ref(tensor); it handles a number of
 # easy to get wrong cases transparently for you.
-import traceback
 class WeakIdRef(weakref.ref):
-    __slots__ = ["_id", "bt"]
+    __slots__ = ["_id"]
 
     def __init__(self, key, callback=None) -> None:
         # Unlike stock weakref, which preserves hash semantics of the
@@ -84,7 +83,6 @@ class WeakIdRef(weakref.ref):
         # method
         self._id = id(key)
         super().__init__(key, callback)  # type: ignore[call-arg]
-        self.bt = traceback.format_stack()
 
     def __call__(self):
         r = super().__call__()
