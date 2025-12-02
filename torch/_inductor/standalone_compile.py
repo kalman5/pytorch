@@ -405,13 +405,6 @@ def standalone_compile(
         else:
             for node in last_node.args[0]:
                 handle_node(node)
-        # # Strategy: Reuse the FakeTensorMode from the GraphModule if available.
-        # # This preserves shape constraints from the original compilation.
-        # # Fall back to creating a new mode with shape_env if the mode isn't stored.
-        # fake_mode = getattr(gm, '_dynamo_fake_mode', None)
-        # if fake_mode is None:
-        #     shape_env = getattr(gm, 'shape_env', None)
-        #     fake_mode = FakeTensorMode(shape_env=shape_env or ShapeEnv())
 
     else:
         raise ValueError(

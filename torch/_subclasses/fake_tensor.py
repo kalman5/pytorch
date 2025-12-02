@@ -520,7 +520,7 @@ class FakeTensorConverter:
         if maybe_memo is not None:
             return maybe_memo
         out = FakeTensor(
-            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys,
+            fake_mode, t, device, pytype=pytype, dispatch_keys=dispatch_keys
         )
         self.set_tensor_memo(t, out)
         return out
@@ -684,10 +684,6 @@ class FakeTensor(Tensor):
     # this is an "infra" mode with lower dispatching precedence.
     _mode_key = torch._C._TorchDispatchModeKey.FAKE
 
-    # def __init__(self, *args: object, **kwargs: object) -> None:
-    #     super().__init__(*args, **kwargs)
-    #     self._creation_bt = traceback.extract_stack()
-
     @property
     def fake_mode(self) -> FakeTensorMode:
         """Access the FakeTensorMode.
@@ -822,7 +818,6 @@ class FakeTensor(Tensor):
         # Use STRONG reference when export=True (torch.export needs mode for serialization)
         # Use WEAK reference for normal torch.compile to break reference cycles
         # that prevent garbage collection in Python 3.14+ (PEP 649/667).
-        # breakpoint()
         if strong_fake_mode or fake_mode.fake_tensor_converter.export:
             self._fake_mode = fake_mode  # Strong reference for export
             self._fake_mode_ref = None
@@ -843,8 +838,6 @@ class FakeTensor(Tensor):
 
         if FakeTensorConfig.debug:
             self._debug_trace = CapturedTraceback.extract()  # type: ignore[attr-defined]
-
-        # self._creation_bt = traceback.extract_stack()
 
         return self
 
