@@ -879,13 +879,24 @@ class BuiltinVariable(VariableTracker):
                         return ConstantVariable.create(op.__name__ != "is_")
                     if left is right:
                         return ConstantVariable.create(op(left, right))
-                    if (
-                        istype(left, variables.ExceptionVariable)
-                        and istype(right, variables.ExceptionVariable)
-                        and left.exc_type is not right.exc_type
+                    if istype(left, variables.ExceptionVariable) and istype(
+                        right, variables.ExceptionVariable
                     ):
-                        return ConstantVariable.create(op(left, right))
-                    return None
+                        if (left.exc_type is not right.exc_type) or (
+                            len(left.args) != len(right.args)
+                        ):
+                            return ConstantVariable.create(op is not operator.is_)
+                        # They cannot be the same object if the arguments are different
+                        m = BuiltinVariable(operator.eq).call_function
+                        eq_nargs = len(left.args) == len(right.args)
+                        if not eq_nargs or (
+                            eq_nargs
+                            and any(
+                                not m(tx, [a, b], {}).value  # type: ignore[attr-defined]
+                                for a, b in zip(left.args, right.args)
+                            )
+                        ):
+                            return ConstantVariable.create(op is not operator.is_)
 
                 result.append(((VariableTracker, VariableTracker), handle_is))  # type: ignore[arg-type]
 
