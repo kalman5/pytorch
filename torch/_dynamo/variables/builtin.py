@@ -2087,7 +2087,7 @@ class BuiltinVariable(VariableTracker):
         return None
 
     def call_dict(
-        self,
+        self_,
         tx: "InstructionTranslator",
         /,
         *args: VariableTracker,
